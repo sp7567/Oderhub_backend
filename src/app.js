@@ -35,13 +35,29 @@ const apiLimiter = rateLimit({
 app.use("/orders", apiLimiter);
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
+// Support comma-separated origins: "https://a.vercel.app,https://b.vercel.app"
+const allowedOrigins = (process.env.CORS_ORIGIN || "*")
+  .split(",")
+  .map((o) => o.trim());
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "*",
-    methods: ["GET", "POST", "PATCH", "DELETE"],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, Postman, mobile apps)
+      if (!origin || allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      }
+    },
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
+
+// Handle OPTIONS preflight for all routes
+app.options("*", cors());
 
 // ─── Body Parsing ─────────────────────────────────────────────────────────────
 // Limit body size to 10kb to prevent payload attacks.
